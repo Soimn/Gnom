@@ -1,0 +1,32 @@
+TODO
+
+* user level '@' tags
+
+* builtin '@' tags
+@macro return_value name(parameters)
+{
+    body
+}
+
+/* TODO: MACROS
+** - Add support for variadic macros
+** - Implement type safe generic macros
+** - Consider allowing macros to be generated and inserted into the code selectively for a time or condition
+*/
+
+* builtin macros
+
+safe_cast(type, var)        : Casts and asserts on over- / underflow
+cast_to_common(var0, var1)  : Casts both to the width of the widest* param
+static_if(expression)       : Compile time if statement
+
+/* cast_to_common casting rules:
+ ** * All integers(except U64) are upcast to the highest common width
+** * When a U64 is cast in common with an unsigned int, both are cast to U64
+** * When a U64 is cast in common with a signed int, both are cast safely to I64
+** * When there is a float in the mix, both are cast to float
+*/
+
+* Compile time and runtime type info
+* Replacement for variadic functions
+* Jai like for loops
