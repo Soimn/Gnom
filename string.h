@@ -126,8 +126,15 @@ Print(String_Stream* stream, String message, va_list arg_list)
                         }
                         
                         U32 index = 0;
+                        char buffer[20] = {};
                         
-                        if (is_signed)
+                        if (!unsigned_number && !signed_number)
+                        {
+                            index = 1;
+                            buffer[0] = '0';
+                        }
+                        
+                        else if (is_signed)
                         {
                             if (signed_number < 0)
                             {
@@ -137,30 +144,28 @@ Print(String_Stream* stream, String message, va_list arg_list)
                                 ++required_length;
                             }
                             
-                            char buffer[20] = {};
-                            
                             for (;;)
                             {
-                                buffer[index++] = signed_number % 10;
+                                buffer[index] = signed_number % 10 + '0';
                                 if (signed_number == 0) break;
                                 
                                 signed_number  /= 10;
                                 
+                                ++index;
                                 ++required_length;
                             }
                         }
                         
                         else
                         {
-                            char buffer[20] = {};
-                            
                             for (;;)
                             {
-                                buffer[index++]  = unsigned_number % 10;
+                                buffer[index]  = unsigned_number % 10 + '0';
                                 if (unsigned_number == 0) break;
                                 
                                 unsigned_number /= 10;
                                 
+                                ++index;
                                 ++required_length;
                                 
                             }
@@ -173,52 +178,14 @@ Print(String_Stream* stream, String message, va_list arg_list)
                         }
                     } break;
                     
-                    case 'f':
-                    {
-                        F32 number = va_arg(arg_list, F32);
-                        
-                        char buffer[10] = {};
-                        
-                        if (number < 0)
-                        {
-                            Append(stream, '-');
-                            number = -number;
-                            
-                            ++required_length;
-                        }
-                        
-                        if (number >= 100000)
-                        {
-                            // Standard notation
-                        }
-                        
-                        else
-                        {
-                            U32 integer_part = (U32)number;
-                            
-                            U32 index = 5;
-                            for (;;)
-                            {
-                                buffer[index++]  = integer_part % 10;
-                                if (integer_part == 0) break;
-                                
-                                integer_part /= 10;
-                                
-                                ++required_length;
-                            }
-                            
-                            index = 0;
-                        }
-                    } break;
-                    
-                    case 's':
+                    case 'S':
                     {
                         String string = va_arg(arg_list, String);
                         Append(stream, string);
                         required_length += string.size;
                     } break;
                     
-                    case 'c':
+                    case 's':
                     {
                         const char* cstring = va_arg(arg_list, const char*);
                         
@@ -231,7 +198,7 @@ Print(String_Stream* stream, String message, va_list arg_list)
                     
                     case 'b':
                     {
-                        bool value = va_arg(arg_list);
+                        bool value = va_arg(arg_list, bool);
                         String true_string  = CONST_STRING("true");
                         String false_string = CONST_STRING("false");
                         
@@ -248,22 +215,31 @@ Print(String_Stream* stream, String message, va_list arg_list)
                         }
                     } break;
                     
-                    INVALID_DEFAULT_CASE;
+                    default:
+                    {
+                        Append(stream, '%');
+                        Append(stream, c);
+                        required_length += 2;
+                    } break;
                 }
             }
             
             else
             {
-                //// ERROR: Stray semicolon
+                Append(stream, '%');
+                ++required_length;
             }
         }
         
         else
         {
             Append(stream, (char)*message.data);
+            Advance(&message, 1);
             ++required_length;
         }
     }
+    
+    return required_length;
 }
 
 inline UMM

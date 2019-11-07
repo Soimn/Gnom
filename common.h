@@ -55,18 +55,6 @@
 #define Enum32(type) U32
 #define Enum64(type) U64
 
-enum GET_OR_SET
-{
-    GET = 0,
-    SET = 1,
-};
-
-enum FORWARD_OR_BACKWARD
-{
-    FORWARD  = 0,
-    BACKWARD = 1,
-};
-
 [[noreturn]]
 inline void
 AssertionFailed(const char* file, const char* function, U32 line, const char* condition_string, String message, ...);
@@ -87,5 +75,5 @@ AssertionFailed(const char* file, const char* fucntion, U32 line, const char* co
 inline void
 Flush(struct String_Stream* stream);
 
-struct String_Stream* PrintStream;
-struct String_Stream* ErrorStream;
+global struct String_Stream* PrintStream;
+global struct String_Stream* ErrorStream;

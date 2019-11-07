@@ -72,6 +72,10 @@ ZeroSize(void* ptr, UMM size)
 #define ZeroStruct(type) (*(type) = {})
 #define ZeroArray(type, count) ZeroSize(type, sizeof((type)[0]) * (count))
 
+/// /////////////////////////////////////////////
+/// /////////////////////////////////////////////
+/// /////////////////////////////////////////////
+
 inline void
 ClearArena(Memory_Arena* arena)
 {
@@ -179,11 +183,11 @@ PushSize(Memory_Arena* arena, UMM size, U8 alignment = 1)
 }
 
 #define PushStruct(arena, type) (type*) PushSize(arena, sizeof(type), alignof(type))
-#define PushArray(arena, type, count) (type*) PushSize(arena, (count) * (sizeof(type) + AlignOffset(((type*)0) + 1, alignof(type))), alignof(type))
+#define PushArray(arena, type, count) (type*) PushSize(arena, (count) * RoundSize(sizeof(type), alignof(type)), alignof(type))
 
-
-
-/// Memory management utility structures and functions
+/// /////////////////////////////////////////////
+/// /////////////////////////////////////////////
+/// /////////////////////////////////////////////
 
 struct Bucket_Array_Block
 {
@@ -200,6 +204,7 @@ struct Bucket_Array
     Bucket_Array_Block* first_block;
     Bucket_Array_Block* current_block;
     
+    U32 num_elements;
     U32 element_size;
     U32 block_size;
     U32 block_count;
@@ -221,17 +226,23 @@ BucketArray(Memory_Arena* arena, UMM element_size, U32 block_size)
 #define BUCKET_ARRAY(arena, type, block_size) BucketArray(arena, RoundSize(sizeof(type), alignof(type)), block_size)
 
 inline void*
-ElementAt(Bucket_Array* array, IMM index)
+ElementAt(Bucket_Array* array, UMM index)
 {
     void* result = 0;
     
-    UMM array_size = (array->block_count - 1) * array->block_size + array->current_block->offset;
-    if (index > 0 && (UMM)index < array_size)
+    UMM array_size = 0;
+    
+    if (array->block_count)
     {
-        Bucket_Array_Block* scan = array->first_block;
+        array_size = (array->block_count - 1) * array->block_size + array->current_block->offset;
+    }
+    
+    if (index < array_size)
+    {
+        Bucket_Array_Block* scan = 0;
         
-        UMM block_index  = (UMM)index / array->block_size;
-        U32 block_offset = (UMM)index % array->block_size;
+        UMM block_index  = index / array->block_size;
+        U32 block_offset = index % array->block_size;
         
         if (block_index == array->block_count - 1)
         {
@@ -240,7 +251,9 @@ ElementAt(Bucket_Array* array, IMM index)
         
         else if (block_index <= array->block_count / 2)
         {
-            for (U32 i = 0; i < block_index, scan; ++i)
+            scan = array->first_block;
+            
+            for (U32 i = 0; i < block_index; ++i)
             {
                 scan = scan->next;
             }
@@ -296,6 +309,7 @@ PushElement(Bucket_Array* array)
     result = (U8*)(array->current_block + 1) + array->element_size * array->current_block->offset;
     ++array->current_block->offset;
     --array->current_block->space;
+    ++array->num_elements;
     
     return result;
 }
@@ -303,11 +317,11 @@ PushElement(Bucket_Array* array)
 struct Bucket_Array_Iterator
 {
     Bucket_Array_Block* current_block;
-    UMM remaining_elements;
     UMM current_index;
+    void* current;
     U32 element_size;
     U32 block_size;
-    void* current;
+    U32 num_elements;
 };
 
 inline Bucket_Array_Iterator
@@ -315,24 +329,15 @@ Iterate(Bucket_Array* array)
 {
     Bucket_Array_Iterator iterator = {};
     
-    if (array->current_block)
+    if (array->block_count)
     {
-        if (array->block_count)
-        {
-            iterator.remaining_elements = ((array->block_count - 1) * array->block_size) - 1;
-            
-            if (array->current_block)
-            {
-                iterator.remaining_elements += array->current_block->offset;
-            }
-        }
-        
-        iterator.element_size      = array->element_size;
-        iterator.block_size        = array->block_size;
-        
         iterator.current_block = array->first_block;
         iterator.current_index = 0;
         iterator.current = array->first_block + 1;
+        
+        iterator.element_size = array->element_size;
+        iterator.block_size   = array->block_size;
+        iterator.num_elements = array->num_elements;
     }
     
     return iterator;
@@ -344,7 +349,6 @@ Advance(Bucket_Array_Iterator* iterator)
     iterator->current = 0;
     
     ++iterator->current_index;
-    --iterator->remaining_elements;
     
     U32 offset = iterator->current_index % iterator->block_size;
     
@@ -364,9 +368,11 @@ struct Free_List_Bucket_Array
     void** free_list;
     
     Memory_Arena* arena;
+    
     Bucket_Array_Block* first_block;
     Bucket_Array_Block* current_block;
     
+    U32 pad_;
     U32 element_size;
     U32 block_size;
     U32 block_count;
@@ -379,9 +385,9 @@ FreeListBucketArray(Memory_Arena* arena, UMM element_size, U32 block_size)
     Assert(element_size >= sizeof(void*));
     
     Free_List_Bucket_Array result = {};
-    result.arena = arena;
+    result.arena        = arena;
     result.element_size = (U32)element_size;
-    result.block_size = block_size;
+    result.block_size   = block_size;
     
     return result;
 }
@@ -419,6 +425,7 @@ PushElement(Free_List_Bucket_Array* array)
             if (array->first_block)
             {
                 array->current_block->next = new_block;
+                new_block->prev = array->current_block;
             }
             
             else
@@ -450,9 +457,9 @@ RemoveElement(Free_List_Bucket_Array* array, void* element)
         
         while (scan)
         {
-            U8* block = (U8*)(scan + 1);
-            UMM offset = element_u8 - block;
-            if (block <= element_u8 && element_u8 < block + array->block_size)
+            U8* block_start = (U8*)(scan + 1);
+            UMM offset = element_u8 - block_start;
+            if (block_start <= element_u8 && element_u8 < block_start + array->block_size)
             {
                 if (offset % array->element_size == 0 && (scan != array->current_block || offset < array->current_block->offset))
                 {
@@ -466,7 +473,7 @@ RemoveElement(Free_List_Bucket_Array* array, void* element)
         }
     }
     
-    Assert(is_valid);
+    Assert(is_valid == true);
     
     if (is_valid)
     {
