@@ -4,6 +4,13 @@
 #include "string.h"
 #include "memory.h"
 
+// TODO(soimn): Implement a proper abort
+inline void
+Abort()
+{
+    *(volatile int*)0 = 0;
+}
+
 [[noreturn]]
 inline void
 AssertionFailed(const char* file, const char* function, U32 line, const char* condition_string, String message, ...)
@@ -17,7 +24,7 @@ AssertionFailed(const char* file, const char* function, U32 line, const char* co
     Flush(ErrorStream);
     va_end(arg_list);
     
-    *(volatile int*)0 = 0;
+    Abort();
 }
 
 [[noreturn]]
@@ -33,7 +40,7 @@ AssertionFailed(const char* file, const char* function, U32 line, const char* co
     Flush(ErrorStream);
     va_end(arg_list);
     
-    *(volatile int*)0 = 0;
+    Abort();
 }
 
 [[noreturn]]
@@ -45,7 +52,7 @@ AssertionFailed(const char* file, const char* function, U32 line, const char* co
     Print(ErrorStream, "File: %s,\nLine: %u,Function: %s\n", file, line, function);
     Flush(ErrorStream);
     
-    *(volatile int*)0 = 0;
+    Abort();
 }
 
 enum REPORT_SEVERITY

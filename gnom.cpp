@@ -1,6 +1,7 @@
 #include "common.h"
 #include "error_handling.h"
 #include "memory.h"
+#include "lexer.h"
 
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
@@ -43,17 +44,9 @@ FreeMemoryBlock(Memory_Block* block)
 inline void
 Flush(String_Stream* stream)
 {
-    HANDLE output_handle = {};
-    
-    if (stream == ErrorStream)
-    {
-        output_handle = GetStdHandle((U32)-12);
-    }
-    
-    else
-    {
-        output_handle = GetStdHandle((U32)-11);
-    }
+    // NOTE(soimn): This acquires a handle to stderr which is not 
+    //              buffered
+    HANDLE output_handle = GetStdHandle((U32)-12);
     
     Bucket_Array* bucket_array = &stream->bucket_array;
     for (Bucket_Array_Block* scan = bucket_array->first_block; scan; scan = scan->next)
@@ -67,6 +60,8 @@ Flush(String_Stream* stream)
             WriteConsole(output_handle, start, size, &chars_written, 0);
         }
     }
+    
+    ResetArray(&stream->bucket_array);
 }
 
 int
@@ -78,9 +73,7 @@ main(int argc, const char** argv)
     PrintStreamObject.bucket_array = BUCKET_ARRAY(&OutputStreamArena, char, 512);
     PrintStream = &PrintStreamObject;
     
-    Report(Warning, "WARNING WARNING, EXTERMINATE!");
-    
-    Print(ErrorStream, "Hello this is an error! %s, %i, %U, %u, %u, %b", "\nHello World!\n", -52, 54ULL, (U16)14, (U16)17, true);
+    Print(ErrorStream, "Hello %s!", "World");
     Flush(ErrorStream);
     
     return 0;

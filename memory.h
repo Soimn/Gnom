@@ -287,23 +287,31 @@ PushElement(Bucket_Array* array)
     {
         Assert(array->block_count < U32_MAX);
         
-        UMM block_size = sizeof(Bucket_Array_Block) + array->element_size * array->block_size;
-        Bucket_Array_Block* new_block = (Bucket_Array_Block*)PushSize(array->arena, block_size, alignof(Bucket_Array_Block));
-        *new_block = {};
-        
-        if (array->first_block)
+        if (array->current_block && array->current_block->next)
         {
-            array->current_block->next = new_block;
-            new_block->prev = array->current_block;
+            array->current_block = array->current_block->next;
         }
         
         else
         {
-            array->first_block = new_block;
+            UMM block_size = sizeof(Bucket_Array_Block) + array->element_size * array->block_size;
+            Bucket_Array_Block* new_block = (Bucket_Array_Block*)PushSize(array->arena, block_size, alignof(Bucket_Array_Block));
+            *new_block = {};
+            
+            if (array->first_block)
+            {
+                array->current_block->next = new_block;
+                new_block->prev = array->current_block;
+            }
+            
+            else
+            {
+                array->first_block = new_block;
+            }
+            
+            array->current_block = new_block;
+            ++array->block_count;
         }
-        
-        array->current_block = new_block;
-        ++array->block_count;
     }
     
     result = (U8*)(array->current_block + 1) + array->element_size * array->current_block->offset;
@@ -312,6 +320,21 @@ PushElement(Bucket_Array* array)
     ++array->num_elements;
     
     return result;
+}
+
+inline void
+ResetArray(Bucket_Array* array)
+{
+    Bucket_Array_Block* block = array->first_block;
+    
+    while (block)
+    {
+        block->space += block->offset;
+        block->offset = 0;
+        block = block->next;
+    }
+    
+    array->current_block = array->first_block;
 }
 
 struct Bucket_Array_Iterator

@@ -55,6 +55,10 @@
 #define Enum32(type) U32
 #define Enum64(type) U64
 
+/// 
+/// ERROR HANDLING FUNCTIIONALITY
+/// 
+
 [[noreturn]]
 inline void
 AssertionFailed(const char* file, const char* function, U32 line, const char* condition_string, String message, ...);
@@ -65,6 +69,12 @@ AssertionFailed(const char* file, const char* function, U32 line, const char* co
 [[noreturn]]
 inline void
 AssertionFailed(const char* file, const char* fucntion, U32 line, const char* condition_string);
+
+inline void
+Report(Enum8(REPORT_SEVERITY) severity, String message, ...);
+
+inline void
+Report(Enum8(REPORT_SEVERITY) severity, const char* message, ...);
 
 #ifndef DISABLE_ASSERT
 #define Assert(condition, ...) ((condition) ? 1 : AssertionFailed(__FILE__, __FUNCTION__, __LINE__, #condition, ##__VA_ARGS__), 0)
