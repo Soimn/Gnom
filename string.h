@@ -6,6 +6,69 @@
 // TODO(soimn): Remove this dependency
 #include <stdarg.h>
 
+inline bool
+IsAlpha(char c)
+{
+    return ((c >= 'A' && c <= 'Z') && (c >= 'a' && c <= 'z'));
+}
+
+inline bool
+IsNumeric(char c)
+{
+    return (c >= '0' && c <= '9');
+}
+
+inline bool
+IsWhitespace(char c)
+{
+    return (c == ' ' || c == '\t' || c == '\v');
+}
+
+inline bool
+IsEndOfLine(char c)
+{
+    return (c == '\n');
+}
+
+inline bool
+IsSpacing(char c)
+{
+    return (IsWhitespace(c) || IsEndOfLine(c));
+}
+
+
+inline char
+ToLower(char c)
+{
+    char result = c;
+    
+    if (result >= 'A' && result <= 'Z')
+    {
+        result -= 'A';
+        result += 'a';
+    }
+    
+    return result;
+}
+
+inline char
+ToUpper(char c)
+{
+    char result = c;
+    
+    if (result >= 'a' && result <= 'z')
+    {
+        result -= 'a';
+        result += 'A';
+    }
+    
+    return result;
+}
+
+/// 
+/// 
+/// 
+
 inline void
 Advance(String* string, UMM amount)
 {
@@ -40,8 +103,12 @@ StringCompare(String s0, String s1)
         Advance(&s1, 1);
     }
     
-    return s0.size == 0 && s0.size == s1.size;
+    return (s0.size == 0 && s0.size == s1.size);
 }
+
+/// 
+/// 
+/// 
 
 struct String_Stream
 {
@@ -64,10 +131,52 @@ Append(String_Stream* stream, String string)
     {
         for (; string.size; Advance(&string, 1))
         {
-            *(char*)PushElement(&stream->bucket_array) = *string.data;
+            *(char*)PushElement(&stream->bucket_array) = (char)*string.data;
         }
     }
 }
+
+struct String_Stream_Interval
+{
+    Bucket_Array_Block* first_block;
+    UMM block_size;
+    UMM index;
+    UMM size;
+};
+
+inline void
+Append(String_Stream* stream, String_Stream_Interval interval)
+{
+    Bucket_Array_Block* block = interval.first_block;
+    
+    for (UMM i = interval.index % interval.block_size; i < MIN(interval.size, interval.block_size); ++i)
+    {
+        Append(stream, *((char*)(block + 1) + i));
+    }
+    
+    UMM remaining_size = interval.size - MIN(interval.size, interval.block_size);
+    
+    if (remaining_size)
+    {
+        block = block->next;
+        
+        U32 num_blocks = (U32)(remaining_size / interval.block_size) + 1;
+        for (U32 i = 0; i < num_blocks; ++i)
+        {
+            for (U32 j = 0; j < MIN(remaining_size, interval.block_size); ++j)
+            {
+                Append(stream, *((char*)(block + 1) + j));
+            }
+            
+            remaining_size -= interval.block_size;
+            block = block->next;
+        }
+    }
+}
+
+/// 
+/// 
+/// 
 
 inline UMM
 Print(String_Stream* stream, String message, va_list arg_list)
@@ -82,7 +191,7 @@ Print(String_Stream* stream, String message, va_list arg_list)
             
             if (message.size)
             {
-                char c = *message.data;
+                char c = (char)*message.data;
                 Advance(&message, 1);
                 
                 switch (c)
@@ -160,7 +269,7 @@ Print(String_Stream* stream, String message, va_list arg_list)
                         {
                             for (;;)
                             {
-                                buffer[index]  = unsigned_number % 10 + '0';
+                                buffer[index] = (char)(unsigned_number % 10) + '0';
                                 if (unsigned_number == 0) break;
                                 
                                 unsigned_number /= 10;

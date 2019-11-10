@@ -1,5 +1,5 @@
 @echo off
-set "common_compiler_flags= /diagnostics:column /MT /Gm- /FC /W4 /wd4100 /wd4201 /Od /Oi /std:c++17 /nologo /GR- /MP /Zo /Zf /Z7 /DEBUG"
+set "common_compiler_flags= /diagnostics:column /MT /Gm- /FC /Wall /wd4710 /wd4820 /wd4100 /wd4201 /Od /Oi /std:c++17 /nologo /GR- /MP /Zo /Zf /Z7 /DEBUG"
 set "libs= user32.lib kernel32.lib"
 
 pushd D:\Gnom\build

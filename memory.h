@@ -263,7 +263,7 @@ ElementAt(Bucket_Array* array, UMM index)
         {
             scan = array->current_block;
             
-            for (U32 i = 0; i < array->block_count - (block_index + 1), scan; ++i)
+            for (U32 i = 0; (i < array->block_count - (block_index + 1)) && scan; ++i)
             {
                 scan = scan->prev;
             }
@@ -373,17 +373,60 @@ Advance(Bucket_Array_Iterator* iterator)
     
     ++iterator->current_index;
     
-    U32 offset = iterator->current_index % iterator->block_size;
-    
-    if (offset == 0)
+    if (iterator->current_index < iterator->num_elements)
     {
-        iterator->current_block = iterator->current_block->next;
+        U32 offset = iterator->current_index % iterator->block_size;
+        
+        if (offset == 0)
+        {
+            iterator->current_block = iterator->current_block->next;
+        }
+        
+        if (iterator->current_block)
+        {
+            iterator->current = (U8*)(iterator->current_block + 1) + iterator->element_size * offset;
+        }
+    }
+}
+
+inline void*
+PeekForward(Bucket_Array_Iterator* iterator, U32 advancement)
+{
+    void* result = 0;
+    
+    UMM index  = iterator->current_index + advancement;
+    U32 offset = index % iterator->block_size;
+    
+    Assert(index > iterator->current_index);
+    
+    if (index < iterator->num_elements)
+    {
+        
+        UMM block_index = index / iterator->block_size;
+        UMM current_block_index = iterator->current_index / iterator->block_size;
+        
+        if (block_index > current_block_index)
+        {
+            Bucket_Array_Block* block = iterator->current_block;
+            
+            for (U32 i = 0; (i < block_index - current_block_index) && block; ++i)
+            {
+                block = block->next;
+            }
+            
+            if (block)
+            {
+                result = (U8*)(block + 1) + iterator->element_size * offset;
+            }
+        }
+        
+        else
+        {
+            result = (U8*)(iterator->current_block + 1) + iterator->element_size * offset;
+        }
     }
     
-    if (iterator->current_block)
-    {
-        iterator->current = (U8*)(iterator->current_block + 1) + iterator->element_size * offset;
-    }
+    return result;
 }
 
 struct Free_List_Bucket_Array
@@ -419,7 +462,7 @@ FreeListBucketArray(Memory_Arena* arena, UMM element_size, U32 block_size)
 
 // NOTE(soimn): This does not check if the element is freed or not
 inline void*
-ElementAt(Free_List_Bucket_Array* array, IMM index)
+ElementAt(Free_List_Bucket_Array* array, UMM index)
 {
     return ElementAt((Bucket_Array*)&array->arena, index);
 }
@@ -481,7 +524,7 @@ RemoveElement(Free_List_Bucket_Array* array, void* element)
         while (scan)
         {
             U8* block_start = (U8*)(scan + 1);
-            UMM offset = element_u8 - block_start;
+            UMM offset = (UMM)(element_u8 - block_start);
             if (block_start <= element_u8 && element_u8 < block_start + array->block_size)
             {
                 if (offset % array->element_size == 0 && (scan != array->current_block || offset < array->current_block->offset))

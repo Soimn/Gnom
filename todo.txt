@@ -11,16 +11,12 @@ TODO
 /* TODO: MACROS
 ** - Add support for variadic macros
 ** - Implement type safe generic macros
-** - Consider allowing macros to be generated and inserted into the code selectively for a time or condition
+** - Consider allowing macros to be generated and inserted into the code selectively
 */
 
 * builtin macros
 
-safe_cast(type, var)        : Casts and asserts on over- / underflow
-cast_to_common(var0, var1)  : Casts both to the width of the widest* param
-static_if(expression)       : Compile time if statement
-
-/* cast_to_common casting rules:
+/*   cast to common casting rules:
  ** * All integers(except U64) are upcast to the highest common width
 ** * When a U64 is cast in common with an unsigned int, both are cast to U64
 ** * When a U64 is cast in common with a signed int, both are cast safely to I64
@@ -30,3 +26,26 @@ static_if(expression)       : Compile time if statement
 * Compile time and runtime type info
 * Replacement for variadic functions
 * Jai like for loops
+* Function and operator overloading
+? Length based string literals
+
+// TODO(soimn): Some sort of tagging is needed to indentify the current line and file, like #line in C and Cpp. 
+//              Should the user be able to add such tags, or should all tags added by the user be ignored?
+// Tag format proposal:
+// #F "file_name.extension"  -- File name
+// #L 0x001234               -- Line number
+
+* Error recovery in the parser
+// IMPORTANT: It seems like Clang uses semicolons and judges the end of erroneous expressions for error recovery
+
+
+// IMPORTANT: Float parsing rules
+// a floating point literal must be expressed in one of the following forms
+// 0.3f    : \d+\.\d+[fF]?
+//  .3f    : \.\d+[fF]?
+// 3E-1f   : \d+[eE][+-]?\d+[fF]?
+// 3.0E-1f : \d+\.\d+[eE][+-]?\d+[fF]?
+//  .3E0f  : \.\d+[eE][+-]?\d+[fF]?
+
+// IMPORTANT: Design decision: long doubles are removed. F32 and F64 are the only floating point types, unless 
+//            F128 is to be added later down the line. Float is an alias for F32, as is double for F64.
