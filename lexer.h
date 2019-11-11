@@ -7,7 +7,8 @@
 enum LEXER_TOKEN_TYPE
 {
     Token_Identifier,
-    Token_Character, // TODO(soimn): GetTokenRaw unicode character constant support
+    // TODO(soimn): GetTokenRaw unicode character constant support
+    Token_Character,
     Token_String,
     Token_INT,
     Token_F32,
@@ -44,7 +45,9 @@ enum LEXER_TOKEN_TYPE
     Token_LogicalOr,          // ||
     Token_OrEquals,           // |=
     Token_Not,                // ~
+    Token_NotEquals,          // ~=
     Token_XOR,                // ^
+    Token_XOREquals,          // ^=
     Token_QuestionMark,       // ?
     Token_Colon,              // :
     Token_Dot,                // .
@@ -145,9 +148,42 @@ LexStringStream(String_Stream stream)
 }
 
 inline Token
-GetTokenRaw(Lexer* lexer)
+GetTokenRaw(Lexer* lexer, bool eat_all_whitespace_and_comments)
 {
     Token token = {};
+    
+    if (eat_all_whitespace_and_comments)
+    {
+        for (;;)
+        {
+            if (IsSpacing(lexer->peek[0]))
+            {
+                Advance(lexer, 1);
+            }
+            
+            else if (lexer->peek[0] == '/' && lexer->peek[1] == '/')
+            {
+                while (lexer->peek[0] != 0 && !IsEndOfLine(lexer->peek[0]))
+                {
+                    Advance(lexer, 1);
+                }
+                
+                Advance(lexer, 1);
+            }
+            
+            else if (lexer->peek[0] == '/' && lexer->peek[1] == '*')
+            {
+                while (lexer->peek[0] != 0 && !(lexer->peek[0] == '*' && lexer->peek[1] == '/'))
+                {
+                    Advance(lexer, 1);
+                }
+                
+                Advance(lexer, 2);
+            }
+            
+            else break;
+        }
+    }
     
     char c = lexer->peek[0];
     Advance(lexer, 1);
@@ -494,14 +530,37 @@ GetTokenRaw(Lexer* lexer)
                         {
                             if (ended_in_float_specifier || has_exponent || point_place != -1)
                             {
+                                // IMPORTANT TODO(soimn): This method of parsing floats is not precise enough to be acceptable. Find another 
+                                //                        way of parsing floats.
+                                I32 decimal_exponent = ((point_place != -1 ? point_place : length) - length) + exponent;
+                                
+                                F64 adjuster = 1.0f;
+                                for (U32 i = 0; i < (U32)(decimal_exponent < 0 ? -decimal_exponent : decimal_exponent); ++i)
+                                {
+                                    adjuster *= 10.0f;
+                                }
+                                
+                                F64 num = (F64)acc / adjuster;
+                                
                                 if (ended_in_float_specifier)
                                 {
-                                    // TODO(soimn): Convert number to float
+                                    if (num > F32_MIN && num < F32_MAX)
+                                    {
+                                        token.type    = Token_F32;
+                                        token.num_f32 = num;
+                                    }
+                                    
+                                    else
+                                    {
+                                        //// ERROR: Floating point literal too large to be represented by type 'float'
+                                        token.type = Token_Error;
+                                    }
                                 }
                                 
                                 else
                                 {
-                                    // TODO(soimn): Convert number to double
+                                    token.type    = Token_F64;
+                                    token.num_f64 = num;
                                 }
                             }
                             
@@ -535,11 +594,11 @@ GetTokenRaw(Lexer* lexer)
 }
 
 inline Token
-PeekTokenRaw(Lexer* lexer)
+PeekTokenRaw(Lexer* lexer, bool eat_all_whitespace_and_comments = false)
 {
     Lexer temp_lexer = *lexer;
     
-    return GetTokenRaw(&temp_lexer);
+    return GetTokenRaw(&temp_lexer, eat_all_whitespace_and_comments);
 }
 
 inline Token
@@ -547,13 +606,188 @@ GetToken(Lexer* lexer)
 {
     Token result = {};
     
-    do
+    result     = GetTokenRaw(lexer, true);
+    Token peek = PeekTokenRaw(lexer, true);
+    
+    Token old_result = result;
+    
+    switch (result.type)
     {
-        result = GetTokenRaw(lexer);
-    } 
-    while (result.type == Token_Whitespace || 
-           result.type == Token_EndOfLine || 
-           result.type == Token_Comment);
+        case Token_Plus:
+        {
+            if (peek.type == Token_Plus)
+            {
+                result.type = Token_Inc;
+            }
+            
+            else if (peek.type == Token_Equals)
+            {
+                result.type = Token_PlusEquals;
+            }
+        } break;
+        
+        case Token_Minus:
+        {
+            if (peek.type == Token_Minus)
+            {
+                result.type = Token_Dec;
+            }
+            
+            else if (peek.type == Token_Equals)
+            {
+                result.type = Token_MinusEquals;
+            }
+        } break;
+        
+        case Token_Divide:
+        {
+            if (peek.type == Token_Equals)
+            {
+                result.type = Token_DivideEquals;
+            }
+        } break;
+        
+        case Token_Asterisk:
+        {
+            if (peek.type == Token_Equals)
+            {
+                result.type = Token_MultiplyEquals;
+            }
+            
+            else
+            {
+                // TODO(soimn): Should dereference and multiply be differentiated by the 
+                //              lexer or the parser?
+            }
+        } break;
+        
+        case Token_Modulo:
+        {
+            if (peek.type == Token_Equals)
+            {
+                result.type = Token_ModuloEquals;
+            }
+        } break;
+        
+        case Token_Equals:
+        {
+            if (peek.type == Token_Equals)
+            {
+                result.type = Token_EqualTo;
+            }
+        } break;
+        
+        case Token_LogicalNot:
+        {
+            if (peek.type == Token_Equals)
+            {
+                result.type = Token_NotEqual;
+            }
+        } break;
+        
+        case Token_GreaterThan:
+        {
+            if (peek.type == Token_Equals)
+            {
+                result.type = Token_GreaterThanOrEqual;
+            }
+            
+            else if (peek.type == Token_GreaterThan)
+            {
+                result.type = Token_RightShift;
+            }
+        } break;
+        
+        case Token_LessThan:
+        {
+            if (peek.type == Token_Equals)
+            {
+                result.type = Token_LessThanOrEqual;
+            }
+            
+            else if (peek.type == Token_LessThan)
+            {
+                result.type = Token_LeftShift;
+            }
+        } break;
+        
+        case Token_Ampersand:
+        {
+            if (peek.type == Token_Ampersand)
+            {
+                result.type = Token_LogicalAnd;
+            }
+            
+            else if (peek.type == Token_Equals)
+            {
+                result.type = Token_AndEquals;
+            }
+        } break;
+        
+        case Token_Or:
+        {
+            if (peek.type == Token_Or)
+            {
+                result.type = Token_LogicalOr;
+            }
+            
+            else if (peek.type == Token_Equals)
+            {
+                result.type = Token_OrEquals;
+            }
+        } break;
+        
+        case Token_Not:
+        {
+            if (peek.type == Token_Equals)
+            {
+                result.type = Token_NotEquals;
+            }
+        } break;
+        
+        case Token_XOR:
+        {
+            if (peek.type == Token_Equals)
+            {
+                result.type = Token_XOREquals;
+            }
+        } break;
+    }
+    
+    if (result.type != old_result.type)
+    {
+        GetTokenRaw(lexer, true);
+        
+        if (result.type == Token_RightShift &&
+            PeekTokenRaw(lexer, true).type == Token_Equals)
+        {
+            result.type = Token_RightShiftEquals;
+        }
+        
+        else if (result.type == Token_LeftShift &&
+                 PeekTokenRaw(lexer, true).type == Token_Equals)
+        {
+            result.type = Token_LeftShiftEquals;
+        }
+    }
+    
+    else if (result.type == Token_Dot && peek.type == Token_Dot)
+    {
+        GetTokenRaw(lexer, true);
+        
+        if (PeekTokenRaw(lexer, true).type == Token_Dot)
+        {
+            GetTokenRaw(lexer, true);
+            result.type = Token_Elipsis;
+        }
+        
+        else
+        {
+            // TODO(soimn): How to handle incomplete elipsis tokens?
+            //// ERROR: ..
+            result.type = Token_Error;
+        }
+    }
     
     return result;
 }

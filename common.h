@@ -45,6 +45,11 @@
 #define I32_MIN (I32) (~I32_MAX)
 #define I64_MIN (I64) (~I64_MAX)
 
+// TODO(soimn): Should these be floats or doubles?
+#define F32_MIN -3.402823466e+38
+#define F32_MAX  3.402823466e+38
+#define F32_UNSIGNED_MIN 1.175494351e-38
+
 #define Flag8(type)  U8
 #define Flag16(type) U16
 #define Flag32(type) U32
