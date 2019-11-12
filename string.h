@@ -144,6 +144,36 @@ struct String_Stream_Interval
     UMM size;
 };
 
+inline bool
+StringCompare(String_Stream_Interval interval, String string)
+{
+    Bucket_Array_Block* current_block = interval.first_block;
+    U8* current = (U8*)(current + 1) + interval.index % interval.block_size;
+    
+    while (interval.size && string.size && *current == string.data[0])
+    {
+        Advance(&string, 1);
+        
+        ++interval.index;
+        --interval.size;
+        
+        if (interval.index % interval.block_size == 0)
+        {
+            current_block = current_block->next;
+        }
+        
+        current = (U8*)(current + 1) + interval.index % interval.block_size;
+    }
+    
+    return (interval.size == 0 && interval.size == string.size);
+}
+
+inline bool
+StringCompare(String string, String_Stream_Interval interval)
+{
+    return StringCompare(interval, string);
+}
+
 inline void
 Append(String_Stream* stream, String_Stream_Interval interval)
 {

@@ -29,3 +29,5 @@ struct Buffer
 };
 
 typedef Buffer String;
+
+typedef U32 File_ID;

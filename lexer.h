@@ -74,7 +74,7 @@ enum LEXER_TOKEN_TYPE
 
 struct Lexer
 {
-    String_Stream_Interval file;
+    File_ID file;
     U32 line;
     U32 column;
     char peek[2];
@@ -798,4 +798,19 @@ PeekToken(Lexer* lexer)
     Lexer temp_lexer = *lexer;
     
     return GetToken(&temp_lexer);
+}
+
+inline bool
+RequireToken(Lexer* lexer, Enum32(LEXER_TOKEN_TYPE) type, bool allways_remove = false)
+{
+    bool result = false;
+    
+    result = (PeekToken(lexer).type == type);
+    
+    if (result || allways_remove)
+    {
+        GetToken(lexer);
+    }
+    
+    return result;
 }
