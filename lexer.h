@@ -6,6 +6,16 @@
 
 enum LEXER_TOKEN_TYPE
 {
+    Token_Struct,
+    Token_Union,
+    Token_Enum,
+    Token_Typedef,
+    Token_If,
+    Token_Else,
+    Token_Do,
+    Token_While,
+    Token_For,
+    
     Token_Identifier,
     // TODO(soimn): GetTokenRaw unicode character constant support
     Token_Character,
@@ -289,6 +299,51 @@ GetTokenRaw(Lexer* lexer, bool eat_all_whitespace_and_comments)
                 {
                     ++token.string.size;
                     Advance(lexer, 1);
+                }
+                
+                if (StringCompare(token.string, CONST_STRING("struct")))
+                {
+                    token.type = Token_Struct;
+                }
+                
+                else if (StringCompare(token.string, CONST_STRING("union")))
+                {
+                    token.type = Token_Union;
+                }
+                
+                else if (StringCompare(token.string, CONST_STRING("enum")))
+                {
+                    token.type = Token_Enum;
+                }
+                
+                else if (StringCompare(token.string, CONST_STRING("typedef")))
+                {
+                    token.type = Token_Typedef;
+                }
+                
+                else if (StringCompare(token.string, CONST_STRING("if")))
+                {
+                    token.type = Token_If;
+                }
+                
+                else if (StringCompare(token.string, CONST_STRING("else")))
+                {
+                    token.type = Token_Else;
+                }
+                
+                else if (StringCompare(token.string, CONST_STRING("do")))
+                {
+                    token.type = Token_Do;
+                }
+                
+                else if (StringCompare(token.string, CONST_STRING("while")))
+                {
+                    token.type = Token_While;
+                }
+                
+                else if (StringCompare(token.string, CONST_STRING("for")))
+                {
+                    token.type = Token_For;
                 }
             }
             
